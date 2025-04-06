@@ -1,1 +1,1 @@
-web: gunicorn wheelshare.wsgi
+web: gunicorn cycle_rent.wsgi
