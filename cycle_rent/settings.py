@@ -59,7 +59,7 @@ ROOT_URLCONF = 'cycle_rent.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join('BASE_DIR','core/templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -121,11 +121,6 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 DATABASE_URL = os.getenv("DATABASE_URL") or ""
-
-print("📡 DATABASE_URL =", DATABASE_URL)  # ✅ Debug print
-
-if not DATABASE_URL:
-    raise ValueError("❌ DATABASE_URL not found. Please check your environment variables.")
 
 DATABASES = {
     'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=True)
