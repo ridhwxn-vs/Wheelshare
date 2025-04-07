@@ -1,8 +1,8 @@
 from decimal import Decimal
-from django.shortcuts import redirect,render
+from django.shortcuts import redirect,render, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
-from .models import Cycle, Rental, UserProfile
-from .models import UserProfile
+from .models import Cycle, Rental, UserProfile, CycleReview
+from django.db.models import Avg
 from .forms import RegisterForm, LoginForm
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.decorators import login_required
@@ -12,7 +12,6 @@ import json
 
 def home(request):
     return render(request,'landingpg.html')
-
 
 def register_view(request):
     if request.method == 'POST':
@@ -140,7 +139,35 @@ def owner_dashboard(request):
         return redirect('user_dashboard')
     
     cycle = Cycle.objects.filter(owner=user).first()
-    return render(request, 'owner_dashboard.html', {'cycle': cycle})
+
+    reviews = []
+    avg_rating = 0
+    latest_reviews = []
+
+    if cycle:
+        reviews = cycle.reviews.all().order_by('-timestamp')
+        avg_rating = reviews.aggregate(avg=Avg('stars'))['avg'] or 0
+        avg_rating = round(avg_rating, 1)
+        latest_reviews = reviews[:3]
+
+    context = {
+        'cycle': cycle,
+        'avg_rating': avg_rating,
+        'latest_reviews': latest_reviews,
+    }
+
+    return render(request, 'owner_dashboard.html', context)
+
 
 def user_dashboard(request):
     return render(request, 'user_dashboard.html')
+
+def about_page(request):
+    return render(request, 'about.html')
+
+def contact_page(request):
+    return render(request, 'contact.html')
+
+def logout_view(request):
+    logout(request)
+    return redirect('home')
