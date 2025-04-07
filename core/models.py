@@ -52,6 +52,7 @@ class RentalRequest(models.Model):
     cycle = models.ForeignKey(Cycle, on_delete=models.CASCADE)
     renter = models.ForeignKey(User, on_delete=models.CASCADE)
     message = models.TextField(blank=True)
+    end_time = models.DateTimeField(null=True, blank=True)
     contact_number = models.CharField(max_length=15)
     requested_at = models.DateTimeField(auto_now_add=True)
     is_approved = models.BooleanField(null=True)  

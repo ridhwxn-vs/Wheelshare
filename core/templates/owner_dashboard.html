@@ -112,13 +112,11 @@
               
               <div class="w-100 py-4 px-3">
                 <div class="row text-center mb-4 rounded shadow-sm align-items-center">
-                  <!-- Model -->
                   <div class="col-md-4 detail-section">
                     <p class="detail-label text-muted mb-2">Model</p>
                     <h2 class="detail-value text-primary fw-bold fs-5">{{ cycle.name }}</h2>
                   </div>
                 
-                  <!-- Status -->
                   <div class="col-md-4 detail-section">
                     <p class="detail-label text-muted mb-2">Status</p>
                     {% if cycle.is_available %}
@@ -128,7 +126,6 @@
                     {% endif %}
                   </div>
                 
-                  <!-- Average Rating -->
                   <div class="col-md-4 detail-section">
                     <p class="detail-label text-muted mb-2">Average Rating</p>
                     <div class="d-flex flex-column align-items-center">
@@ -150,6 +147,14 @@
                 <div class="detail-section">
                   <p class="detail-label">Location</p>
                   <div id="map" class="rounded shadow-sm" style="height: 300px; width: 100%; margin-bottom: 10px;"></div>
+                </div>
+
+                <div class="d-flex justify-content-center flex-wrap gap-2 mt-4">
+                  <button id="edit-btn" class="btn btn-outline-primary">Edit Cycle</button>
+                  <button id="confirm-btn" class="btn btn-success d-none">Confirm Changes</button>
+                  {% if cycle.is_available %}
+                    <button id="remove-btn" class="btn btn-outline-danger">Remove from Listing</button>
+                  {% endif %}
                 </div>
                   
                 <h3 class="mt-4 mb-3 text-center text-primary fw-semibold fs-5">Recent Reviews</h3>
@@ -176,35 +181,98 @@
               {% endif %}
 
               </div>
-                
-                <div class="d-flex justify-content-center flex-wrap gap-2 mt-4">
-                  <button id="edit-btn" class="btn btn-outline-primary">Edit Cycle</button>
-                  <button id="confirm-btn" class="btn btn-success d-none">Confirm Changes</button>
-                  {% if cycle.is_available %}
-                    <button id="remove-btn" class="btn btn-outline-danger">Remove from Listing</button>
+              <div class="card shadow-sm rounded-4 p-4 mt-4 border-warning border-2 bg-light-subtle">
+              <h3 class="mt-4 mb-3 text-center text-primary fw-semibold fs-5">Pending Rental Requests</h3>
+              {% if rental_requests %}
+                <div class="space-y-4">
+                  {% for req in rental_requests %}
+                    <div class="p-4 rounded-4 border border-1 shadow-sm bg-light position-relative review-bubble">
+                      <div class="mb-2">
+                        <p class="detail-label mb-1">Renter</p>
+                        <p class="text-dark fw-semibold">{{ req.renter.get_full_name }}</p>
+
+                        <p class="detail-label mb-1">Contact</p>
+                        <p class="text-dark fw-semibold">{{ req.contact_number }}</p>
+
+                        {% if req.message %}
+                          <p class="detail-label mb-1">Message</p>
+                          <p class="text-secondary fw-normal">"{{ req.message }}"</p>
+                        {% endif %}
+
+                        <p class="detail-label mb-1">Requested At</p>
+                        <p class="text-muted small">{{ req.requested_at|date:"F j, Y, g:i a" }}</p>
+                      </div>
+
+                      <form method="POST" action="{% url 'confirm_rental_request' req.id %}" class="text-end mt-2">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-success px-3">Confirm Request</button>
+                      </form>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <p class="text-muted fst-italic text-center">No pending rental requests.</p>
+              {% endif %}
+            </div>
+              {% if not cycle.is_available and current_renter %}
+              <div class="card shadow-sm rounded-4 p-4 mt-4 border-warning border-2 bg-light-subtle">
+                <h3 class="mt-4 mb-3 text-center text-primary fw-semibold fs-5">Active Rental Information</h3>
+
+                <div class="row justify-content-center text-center g-4">
+                  <div class="col-md-4">
+                    <div class="p-3 border rounded-3 bg-white shadow-sm hover-shadow transition">
+                      <p class="detail-label mb-1">Renter</p>
+                      <p class="text-dark fw-semibold">{{ current_renter.get_full_name }}</p>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="p-3 border rounded-3 bg-white shadow-sm hover-shadow transition">
+                      <p class="detail-label mb-1">Email</p>
+                      <p class="text-dark fw-semibold">{{ current_renter.email }}</p>
+                    </div>
+                  </div>
+                  {% if contact_number %}
+                  <div class="col-md-4">
+                    <div class="p-3 border rounded-3 bg-white shadow-sm hover-shadow transition">
+                      <p class="detail-label mb-1">Phone</p>
+                      <p class="text-dark fw-semibold">{{ contact_number }}</p>
+                    </div>
+                  </div>
                   {% endif %}
+                  <div class="col-md-4">
+                    <div class="p-3 border rounded-3 bg-white shadow-sm hover-shadow transition">
+                      <p class="detail-label mb-1">Start Time</p>
+                      <p class="text-dark fw-semibold">{{ rental.start_time|date:"F j, Y, g:i a" }}</p>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="p-3 border rounded-3 bg-white shadow-sm hover-shadow transition">
+                      <p class="detail-label mb-1">Expected Return</p>
+                      {% if return_time %}
+                        <p class="text-dark fw-semibold">{{ return_time|date:"F j, Y, g:i a" }}</p>
+                      {% else %}
+                        <p class="text-muted fst-italic">Not available</p>
+                      {% endif %}
+                    </div>
+                  </div>
                 </div>
 
-                {% if not cycle.is_available %}
-                  {% if cycle.current_renter %}
-                    <hr class="my-4">
-                    <h5 class="fw-semibold text-center text-warning">Current Renter</h5>
-                    <p class="text-center"><strong>Name:</strong> {{ cycle.current_renter.get_full_name }}</p>
-                    <p class="text-center"><strong>Return Time:</strong> {{ cycle.return_time|date:"F j, Y, g:i a" }}</p>
-                    <form method="post" action="#" class="text-center">
-                      {% csrf_token %}
-                      <button class="btn btn-warning">Confirm Return</button>
-                    </form>
-                  {% else %}
-                    <hr class="my-4">
-                    <p class="text-muted text-center">This cycle is currently not listed for rent.</p>
-                    <div class="text-center">
-                      <button id="relist-btn" class="btn btn-outline-success mt-2">Relist Cycle</button>
-                    </div>
-                  {% endif %}
-                {% endif %}
+                <form method="post" action="{% url 'confirm_return' cycle.id %}" class="text-center mt-4">
+                  {% csrf_token %}
+                  <button class="btn btn-warning px-4 py-2 rounded-pill shadow-sm">Confirm Return</button>
+                </form>
               </div>
+
+              <style>
+                .hover-shadow:hover {
+                  box-shadow: 0 0.5rem 1.2rem rgba(0, 0, 0, 0.1) !important;
+                  transition: box-shadow 0.3s ease-in-out;
+                }
+              </style>
+            {% endif %}
             </div>
+            </div>
+
           {% else %}
             <h2 class="mb-4 text-center">You haven't registered a cycle yet.</h2>
             <div class="text-center">
@@ -304,7 +372,6 @@
     let selectedLng = initialLng;
 
     document.addEventListener('DOMContentLoaded', function () {
-    // Initialize the map
     map = L.map('map').setView([initialLat, initialLng], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'

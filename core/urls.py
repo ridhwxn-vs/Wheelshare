@@ -16,6 +16,7 @@ urlpatterns = [
     path('about/', views.about_page, name='about'),
     path('contact/', views.contact_page, name='contact'),
     path('api/cycle-locations/', views.get_cycle_locations, name='cycle_locations'),
-
+    path('dashboard/confirm-request/<int:request_id>/', views.confirm_rental_request, name='confirm_rental_request'),
+    path('confirm_return/<int:cycle_id>/', views.confirm_return, name='confirm_return'),
 ]
 

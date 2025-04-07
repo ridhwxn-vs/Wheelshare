@@ -9,6 +9,9 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 import json
+from .models import RentalRequest
+from django.utils import timezone
+
 
 def home(request):
     return render(request, 'landingpg.html')
@@ -74,6 +77,27 @@ def account_setup(request):
 
     return render(request, 'account_setup.html', {'profile': profile})
 
+@login_required
+def confirm_rental_request(request, request_id):
+    rental_request = get_object_or_404(RentalRequest, id=request_id, cycle__owner=request.user)
+
+    if request.method == "POST" and rental_request.is_approved is None and rental_request.cycle.is_available:
+        rental_request.is_approved = True
+        rental_request.save()
+
+        cycle = rental_request.cycle
+        cycle.is_available = False
+        cycle.save()
+
+        Rental.objects.create(
+            cycle=cycle,
+            renter=rental_request.renter,
+            start_time=timezone.now(),
+            end_time=rental_request.end_time
+        )
+
+    return redirect('owner_dashboard')
+
 @csrf_exempt
 @login_required
 def edit_cycle(request, cycle_id):
@@ -120,6 +144,10 @@ def relist_cycle(request, cycle_id):
             return JsonResponse({'success': False, 'error': 'Cycle not found'}, status=404)
     return JsonResponse({'success': False, 'error': 'Invalid method'}, status=400)
 
+from django.db.models import Avg
+from .models import Cycle, RentalRequest, Rental
+
+@login_required
 def owner_dashboard(request):
     user = request.user
     profile = UserProfile.objects.get(user=user)
@@ -131,6 +159,11 @@ def owner_dashboard(request):
     reviews = []
     avg_rating = 0
     latest_reviews = []
+    current_renter = None
+    return_time = None
+    contact_number = None
+    start_time = None
+    rental_requests = []
 
     if cycle:
         reviews = cycle.reviews.all().order_by('-timestamp')
@@ -138,13 +171,54 @@ def owner_dashboard(request):
         avg_rating = round(avg_rating, 1)
         latest_reviews = reviews[:3]
 
+        active_rental = Rental.objects.filter(cycle=cycle, is_active=True).first()
+        if active_rental:
+            current_renter = active_rental.renter
+            return_time = active_rental.end_time
+            try:
+                rental_request = RentalRequest.objects.filter(
+                    cycle=cycle,
+                    renter=current_renter,
+                    is_approved=True
+                ).order_by('-id').first()
+
+                start_time = active_rental.start_time 
+                contact_number = rental_request.contact_number
+            except RentalRequest.DoesNotExist:
+                return_time = None
+                contact_number = None
+
+        rental_requests = RentalRequest.objects.filter(cycle=cycle, is_approved=None)
+
     context = {
         'cycle': cycle,
         'avg_rating': avg_rating,
         'latest_reviews': latest_reviews,
+        'current_renter': current_renter,
+        'return_time': return_time,
+        'start_time': start_time,
+        'contact_number': contact_number,
+        'rental_requests': rental_requests,
     }
 
     return render(request, 'owner_dashboard.html', context)
+
+@login_required
+def confirm_return(request, cycle_id):
+    cycle = get_object_or_404(Cycle, id=cycle_id, owner=request.user)
+    
+    if request.method == "POST":
+        rental = Rental.objects.filter(cycle=cycle, is_active=True).first()
+        
+        if rental:
+            rental.is_active = False
+            rental.save()
+
+            cycle.is_available = True
+            cycle.save()
+
+    return redirect('owner_dashboard')
+
 
 def user_dashboard(request):
     cycles = Cycle.objects.filter(is_available=True)
