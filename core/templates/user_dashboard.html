@@ -122,8 +122,73 @@
       </div>
     </div>
   </nav>
+  {% if active_rental %}
+  <div class="d-flex justify-content-center mt-5">
+    <div class="card p-4 px-md-5 py-md-4 shadow-lg border-0 rounded-5 bg-white" style="max-width: 1100px; width: 100%;">
+      <h4 class="mb-4 text-center text-success fw-bold">Your Current Cycle Rental</h4>
+      
+      <div class="row g-4 text-center">
+        <div class="col-md-4">
+          <div class="p-3 border rounded-4 bg-light shadow-sm">
+            <p class="text-muted mb-1">My Name</p>
+            <p class="fw-semibold texntet-dark">{{ request.user.get_full_name }}</p>
+          </div>
+        </div>
 
-  <!-- Map -->
+        <div class="col-md-4">
+          <div class="p-3 border rounded-4 bg-light shadow-sm">
+            <p class="text-muted mb-1">My Email</p>
+            <p class="fw-semibold text-dark">{{ request.user.email }}</p>
+          </div>
+        </div>
+
+        {% if request.user.profile.phone_number %}
+        <div class="col-md-4">
+          <div class="p-3 border rounded-4 bg-light shadow-sm">
+            <p class="text-muted mb-1">Phone</p>
+            <p class="fw-semibold text-dark">{{ request.user.profile.phone_number }}</p>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="col-md-4">
+          <div class="p-3 border rounded-4 bg-light shadow-sm">
+            <p class="text-muted mb-1">Cycle</p>
+            <p class="fw-semibold text-dark">{{ active_rental.cycle.name }}</p>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="p-3 border rounded-4 bg-light shadow-sm">
+            <p class="text-muted mb-1">Rate (per hour)</p>
+            <p class="fw-semibold text-dark">₹{{ active_rental.cycle.rate_per_hour }}</p>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="p-3 border rounded-4 bg-light shadow-sm">
+            <p class="text-muted mb-1">Start Time</p>
+            <p class="fw-semibold text-dark">{{ active_rental.start_time|date:"F j, Y, g:i a" }}</p>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="p-3 border rounded-4 bg-light shadow-sm">
+            <p class="text-muted mb-1">Expected Return</p>
+            {% if active_rental.end_time %}
+              <p class="fw-semibold text-dark">{{ active_rental.end_time|date:"F j, Y, g:i a" }}</p>
+            {% else %}
+              <p class="text-muted fst-italic">Not available</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
+<br>
+<h2 class="mb-4 text-center text-success fw-bold">Available Bikes Nearby</h2>
+
   <div class="container-fluid mt-3">
     <div class="map-container" id="map"></div>
   </div>
@@ -138,7 +203,7 @@
         <p><strong>Owner:</strong> {{ cycle.owner.email }}</p>
         <p><strong>Phone:</strong> {{ cycle.owner.userprofile.phone_number }}</p>
         <p><strong>Rate:</strong> ₹{{ cycle.rate_per_hour }}/hr</p>
-        <button class="btn btn-primary mt-2">Book Now</button>
+        <button class="btn btn-primary mt-2 confirm-booking-btn" data-cycle-id="{{ cycle.id }}">Book Now</button>
       </div>
     </div>
     {% endfor %}
@@ -162,7 +227,95 @@
     });
   </script>
 
-  <!-- Infinite Scroll JS -->
+    <div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 shadow">
+          <div class="modal-header">
+            <h5 class="modal-title" id="bookingModalLabel">Book Cycle</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form id="bookingForm">
+            <div class="modal-body">
+              <input type="hidden" id="cycleId" name="cycle_id">
+              <div class="mb-3">
+                <label for="message" class="form-label">Message to Owner</label>
+                <textarea class="form-control" id="message" name="message" rows="3" required></textarea>
+              </div>
+              <div class="mb-3">
+                <label for="endTime" class="form-label">Rent End Time</label>
+                <input type="datetime-local" class="form-control" id="endTime" name="end_time" required>
+              </div>
+              <div class="mb-3">
+                <label for="phoneNumber" class="form-label">Your Phone Number</label>
+                <input type="tel" class="form-control" id="phoneNumber" name="phone" required>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="submit" class="btn btn-primary w-100">Confirm Booking</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+      const bookingModal = new bootstrap.Modal(document.getElementById("bookingModal"));
+      const bookingForm = document.getElementById("bookingForm");
+
+      document.querySelectorAll(".confirm-booking-btn").forEach(button => {
+          button.addEventListener("click", function () {
+              const cycleId = this.dataset.cycleId;
+              document.getElementById("cycleId").value = cycleId;
+              bookingForm.reset();
+              bookingModal.show();
+          });
+      });
+
+      bookingForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          const cycleId = document.getElementById("cycleId").value;
+          const message = document.getElementById("message").value;
+          const endTime = document.getElementById("endTime").value;
+          const phone = document.getElementById("phoneNumber").value;
+
+          fetch("{% url 'submit_booking' %}", {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+                  "X-CSRFToken": "{{ csrf_token }}"
+              },
+              body: JSON.stringify({
+                  cycle_id: cycleId,
+                  end_time: endTime,
+                  message: message,
+                  phone: phone
+              })
+          })
+          .then(res => res.json())
+          .then(data => {
+              if (data.status === "success") {
+                  bookingModal.hide();
+                  setTimeout(() => {
+                      const successModal = new bootstrap.Modal(document.createElement('div'));
+                      alert("Booking submitted successfully!");
+                      window.location.reload();
+                  }, 200);
+              } else {
+                  alert("Error: " + data.error);
+              }
+          })
+          .catch(error => {
+              console.error("Error submitting booking:", error);
+              alert("Something went wrong.");
+          });
+      });
+  });
+    </script>
+
   <script>
     let page = 2;
     let loading = false;
@@ -191,7 +344,7 @@
                 <p><strong>Owner:</strong> ${cycle.owner}</p>
                 <p><strong>Phone:</strong> ${cycle.phone}</p>
                 <p><strong>Rate:</strong> ₹${cycle.rate}/hr</p>
-                <button class="btn btn-primary mt-2">Book Now</button>
+                <button class="btn btn-primary mt-2 confirm-booking-btn" data-cycle-id="{{ cycle.id }}">Book Now</button>
               </div>
             `;
             grid.appendChild(card);
@@ -215,6 +368,8 @@
         loadMoreCycles();
       }
     });
+
+    
   </script>
 
 </body>

@@ -11,7 +11,7 @@ from django.http import JsonResponse
 import json
 from .models import RentalRequest
 from django.utils import timezone
-
+from django.views.decorators.http import require_POST
 
 def home(request):
     return render(request, 'landingpg.html')
@@ -147,6 +147,52 @@ def relist_cycle(request, cycle_id):
 from django.db.models import Avg
 from .models import Cycle, RentalRequest, Rental
 
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.dateparse import parse_datetime
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
+from .models import Cycle, RentalRequest
+import json
+
+@csrf_exempt  
+@require_POST
+@login_required
+def submit_booking(request):
+    try:
+        data = json.loads(request.body)
+
+        cycle_id = data.get("cycle_id")
+        message = data.get("message")
+        end_time_str = data.get("end_time")
+        phone = data.get("phone")
+
+        end_time = parse_datetime(end_time_str)
+        if not end_time:
+            return JsonResponse({"error": "Invalid end time format"}, status=400)
+
+        user = request.user
+        try:
+            cycle = Cycle.objects.get(id=cycle_id)
+        except Cycle.DoesNotExist:
+            return JsonResponse({"error": "Cycle not found"}, status=404)
+
+        RentalRequest.objects.create(
+            cycle=cycle,
+            renter=user,
+            message=message,
+            contact_number=phone,
+            end_time=end_time,
+        )
+
+        return JsonResponse({"status": "success"})
+    
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 @login_required
 def owner_dashboard(request):
     user = request.user
@@ -219,7 +265,6 @@ def confirm_return(request, cycle_id):
 
     return redirect('owner_dashboard')
 
-
 def user_dashboard(request):
     cycles = Cycle.objects.filter(is_available=True)
 
@@ -233,9 +278,15 @@ def user_dashboard(request):
         for cycle in cycles if cycle.location_lat and cycle.location_lng
     ]
 
+    # Check if user has an active rental
+    active_rental = None
+    if request.user.is_authenticated:
+        active_rental = Rental.objects.filter(renter=request.user, is_active=True).select_related('cycle').first()
+
     context = {
         'cycles': cycles,
         'cycle_data_json': json.dumps(cycle_data),
+        'active_rental': active_rental,
     }
     return render(request, 'user_dashboard.html', context)
 
