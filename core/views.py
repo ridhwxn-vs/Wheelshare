@@ -1,5 +1,5 @@
 from decimal import Decimal
-from django.shortcuts import redirect,render, get_object_or_404
+from django.shortcuts import redirect, render, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
 from .models import Cycle, Rental, UserProfile, CycleReview
 from django.db.models import Avg
@@ -11,7 +11,7 @@ from django.http import JsonResponse
 import json
 
 def home(request):
-    return render(request,'landingpg.html')
+    return render(request, 'landingpg.html')
 
 def register_view(request):
     if request.method == 'POST':
@@ -50,33 +50,24 @@ def account_setup(request):
     user = request.user
 
     if request.method == 'POST':
-
-        first_name = request.POST.get('first_name')
-        last_name = request.POST.get('last_name')
-        user.first_name = first_name
-        user.last_name = last_name
+        user.first_name = request.POST.get('first_name')
+        user.last_name = request.POST.get('last_name')
         user.save()
 
-        phone = request.POST.get('phone_number')
-        profile.phone_number = phone
+        profile.phone_number = request.POST.get('phone_number')
         profile.details_completed = True
         profile.save()
 
         if profile.is_owner:
-            name = request.POST.get('name')
-            rate =request.POST.get('rate')
-            lat = request.POST.get('lat')
-            lng = request.POST.get('lng')
-            description = request.POST.get('description')
-
             Cycle.objects.create(
                 owner=user,
-                name=name,
-                rate_per_hour=rate,
-                location_lat=lat,
-                location_lng=lng,
-                description=description,
-                is_available=True 
+                name=request.POST.get('name'),
+                rate_per_hour=request.POST.get('rate_per_hour'),
+                location_lat=request.POST.get('lat'),
+                location_lng=request.POST.get('lng'),
+                description=request.POST.get('description'),
+                image=request.FILES.get('cycle_image'),
+                is_available=True
             )
 
         return redirect('owner_dashboard' if profile.is_owner else 'user_dashboard')
@@ -90,7 +81,6 @@ def edit_cycle(request, cycle_id):
         try:
             cycle = Cycle.objects.get(id=cycle_id, owner=request.user)
             data = json.loads(request.body)
-
             cycle.description = data.get('description', cycle.description)
             cycle.is_available = data.get('is_available', cycle.is_available)
 
@@ -99,12 +89,10 @@ def edit_cycle(request, cycle_id):
                 cycle.longitude = data['longitude']
 
             cycle.save()
-
             return JsonResponse({'status': 'success'})
         except Cycle.DoesNotExist:
             return JsonResponse({'status': 'error', 'message': 'Cycle not found'}, status=404)
     return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=400)
-
 
 @csrf_exempt
 @login_required
@@ -137,7 +125,7 @@ def owner_dashboard(request):
     profile = UserProfile.objects.get(user=user)
     if not profile.is_owner:
         return redirect('user_dashboard')
-    
+
     cycle = Cycle.objects.filter(owner=user).first()
 
     reviews = []
@@ -158,9 +146,38 @@ def owner_dashboard(request):
 
     return render(request, 'owner_dashboard.html', context)
 
-
 def user_dashboard(request):
-    return render(request, 'user_dashboard.html')
+    cycles = Cycle.objects.filter(is_available=True)
+
+    cycle_data = [
+        {
+            'name': cycle.name,
+            'rate_per_hour': float(cycle.rate_per_hour),
+            'location_lat': cycle.location_lat,
+            'location_lng': cycle.location_lng
+        }
+        for cycle in cycles if cycle.location_lat and cycle.location_lng
+    ]
+
+    context = {
+        'cycles': cycles,
+        'cycle_data_json': json.dumps(cycle_data),
+    }
+    return render(request, 'user_dashboard.html', context)
+
+@csrf_exempt
+def get_cycle_locations(request):
+    cycles = Cycle.objects.filter(is_available=True)
+    data = [
+        {
+            'name': cycle.name,
+            'lat': cycle.location_lat,
+            'lng': cycle.location_lng,
+            'owner': cycle.owner.username
+        }
+        for cycle in cycles
+    ]
+    return JsonResponse({'cycles': data})
 
 def about_page(request):
     return render(request, 'about.html')

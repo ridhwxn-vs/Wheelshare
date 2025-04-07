@@ -15,5 +15,7 @@ urlpatterns = [
     path('relist-cycle/<int:cycle_id>/', views.relist_cycle, name='relist_cycle'),
     path('about/', views.about_page, name='about'),
     path('contact/', views.contact_page, name='contact'),
+    path('api/cycle-locations/', views.get_cycle_locations, name='cycle_locations'),
+
 ]
 
