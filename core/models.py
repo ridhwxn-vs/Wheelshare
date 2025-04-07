@@ -6,6 +6,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     is_owner = models.BooleanField(default=False) 
+    details_completed = models.BooleanField(default=False)
     phone_number = models.CharField(max_length=15, blank=True)
 
     def __str__(self):
@@ -46,6 +47,14 @@ class Rental(models.Model):
 
     def __str__(self):
         return f"{self.cycle.name} rented by {self.renter.username}"
+
+class RentalRequest(models.Model):
+    cycle = models.ForeignKey(Cycle, on_delete=models.CASCADE)
+    renter = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.TextField(blank=True)
+    contact_number = models.CharField(max_length=15)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    is_approved = models.BooleanField(null=True)  
 
 class UserReview(models.Model):
     rental = models.OneToOneField(Rental, on_delete=models.CASCADE)
